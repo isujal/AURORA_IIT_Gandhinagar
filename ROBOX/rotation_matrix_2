@@ -1,0 +1,37 @@
+
+import numpy as np
+
+def calculate_ee_orientation(joint_angles):
+    """
+    Calculate end-effector orientation from joint angles.
+    
+    :param joint_angles: List of joint angles [rad]
+    :return: 3x3 rotation matrix
+    """
+    # Get each joint angle
+    theta1 = joint_angles[0]
+    theta2 = joint_angles[1]
+    theta3 = joint_angles[2]
+    
+    # Create rotation matrices for Z-axis rotations (our robot has rotations about Z)
+    # Rotation matrix for rotating about Z-axis by theta
+    
+    def Rz(theta):
+        return np.array([
+            [np.cos(theta), -np.sin(theta), 0],
+            [np.sin(theta), np.cos(theta), 0],
+            [0, 0, 1]
+        ])
+    
+    # Calculate the orientation by composing the rotations
+    # Each joint contributes its rotation to the overall orientation
+    R1 = Rz(theta1)
+    R2 = Rz(theta2)
+    R3 = Rz(theta3)
+    
+    # The final orientation is the product of all rotations
+    # This gives the orientation of the end-effector in the base frame
+    R = R1 @ R2 @ R3
+    
+    return R
+    
