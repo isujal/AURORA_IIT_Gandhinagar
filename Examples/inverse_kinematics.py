@@ -1,3 +1,8 @@
+""" 
+example code for getting inverse kinematics of any position
+
+"""
+
 import numpy as np
 import math
 import time
