@@ -1,7 +1,13 @@
+""" 
+example code for getting position of any position
+
+"""
+
 import numpy as np
 import time
 from esp_bridge import ESPActuatorController as ActuatorController
 from esp_bridge import OperatingMode
+
 
 
 def run_challenge(actuator_controller):

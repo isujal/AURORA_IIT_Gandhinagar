@@ -423,8 +423,8 @@ def main():
                 print(f"Mirroring {'RESUMED' if active else 'PAUSED'}")
                 if not active:
                     hand.open_hand()
-            elif key == ord('r'):
-                smoother.reset()
+            elif key == ord('r'):   
+                smoother.reset()  
                 print("Smoother reset.")
 
     except KeyboardInterrupt:
