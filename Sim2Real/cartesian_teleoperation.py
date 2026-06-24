@@ -1,5 +1,3 @@
-
-
 # Challenge: Cartesian Teleoperation - Sim-to-Real
 import numpy as np
 import time
@@ -21,13 +19,14 @@ AVAILABLE OBJECTS (provided automatically):
 
 KEYBOARD CONTROLS:
   W : Move +Y (forward)     S : Move -Y (backward)
-  A : Move -X (left)        D : Move +X (right)
-  R : Move +Z (up)          F : Move -Z (down)
+  A : Move -X (left)         D : Move +X (right)
+  R : Move +Z (up)           F : Move -Z (down)
+  
+  ADDITIONAL INDEPENDENT JOINT CONTROLS:
+  Z : Rotate Joint 3 (+)     V : Rotate Joint 3 (-)
+  
   H : Return to home position
   Q : Quit teleoperation
-
-The pynput library captures keyboard presses even when the GUI
-window is in focus. Each key press triggers one step of motion.
 """
 
 # -------------------------------------------------
@@ -71,16 +70,15 @@ def run_challenge(sim2real, robot, model, data):
     T_home = robot.forward_kinematics(np.zeros(3))
     ee_start = T_home[:3, 3].copy()
 
-    print(f"\\nInitial EE position: "
+    print(f"\nInitial EE position: "
           f"[{ee_start[0]*100:.1f}, {ee_start[1]*100:.1f}, {ee_start[2]*100:.1f}] cm")
 
     # -------------------------------------------------
     # TODO 2: Set the step size (in meters)
     # Each key press moves the EE by this amount.
     # -------------------------------------------------
-    step_size = 0.05
-    joint_step = 0.05  # ~3 deg per key press (in radians)
-
+    step_size = 0.025
+    joint_step = 0.05  # Radians (~3 deg) per Z/V press
 
     # -------------------------------------------------
     # TODO 3: Define the direction map
@@ -88,16 +86,16 @@ def run_challenge(sim2real, robot, model, data):
     # Keys: 'w'/'s' for Y axis, 'a'/'d' for X axis, 'r'/'f' for Z axis.
     # -------------------------------------------------
     direction_map = {
-        'w': np.array([ 0,  1,  0]),   # +Y
-        's': np.array([ 0, -1,  0]),   # -Y
-        'a': np.array([-1,  0,  0]),   # -X
-        'd': np.array([ 1,  0,  0]),   # +X
-        'r': np.array([ 0,  0,  1]),   # +Z
-        'f': np.array([ 0,  0, -1]),   # -Z
+        'w': np.array([0,  1, 0]),
+        's': np.array([0, -1, 0]),
+        'a': np.array([-1, 0, 0]),
+        'd': np.array([ 1, 0, 0]),
+        'r': np.array([0, 0,  1]),
+        'f': np.array([0, 0, -1]),
     }
 
     # Move to home first
-    print("\\nMoving to home position...")
+    print("\nMoving to home position...")
     q_current = np.zeros(3)
     sim2real.set_joint_positions(q_current)
     time.sleep(0.5)
@@ -108,109 +106,99 @@ def run_challenge(sim2real, robot, model, data):
     step_count = 0
     quit_flag = False
 
-    print("\\n" + "=" * 55)
+    print("\n" + "=" * 55)
     print("  CARTESIAN TELEOPERATION - KEYBOARD CONTROL")
     print("=" * 55)
     print(f"  Step size: {step_size*100:.1f} cm")
     print("  Controls: W/A/S/D = XY plane | R/F = Z axis")
+    print("            Z/V = Independent Joint 3 Movement")
     print("  H = Home | Q = Quit")
     print("=" * 55)
-    print("\\n  Press keys on your keyboard to move the robot...\\n")
+    print("\n  Press keys on your keyboard to move the robot...\n")
 
     # -------------------------------------------------
     # TODO 4: Implement the keyboard callback
     # This function is called every time a key is pressed.
     # -------------------------------------------------
     def on_key_press(key):
-    nonlocal target_pos, q_current, step_count, quit_flag
+        nonlocal target_pos, q_current, step_count, quit_flag
+        try:
+            k = key.char.lower()
+        except AttributeError:
+            return  # special key, ignore
 
-    try:
-        k = key.char.lower()
-    except AttributeError:
-        return
+        if k in direction_map:
+            # Pure Cartesian movement - completely untouched
+            target_pos = target_pos + direction_map[k] * step_size
+            q_current = solve_ik(robot, target_pos, q_current)
+            sim2real.set_joint_positions(q_current)
+            step_count += 1
+            T = robot.forward_kinematics(q_current)
+            ee = T[:3, 3]
+            positions_visited.append(ee.copy())
+            commands_executed.append(k)
+            err = np.linalg.norm(ee - target_pos)
+            print(f"  Step {step_count}: {k.upper()} -> "
+                  f"EE [{ee[0]*100:.1f}, {ee[1]*100:.1f}, "
+                  f"{ee[2]*100:.1f}] cm (err: {err*100:.2f} cm)")
+                  
+        elif k == 'z':
+            # Independent Joint 3 adjustment (Positive direction)
+            q_current[2] = q_current[2] + joint_step
+            sim2real.set_joint_positions(q_current)
+            T = robot.forward_kinematics(q_current)
+            ee = T[:3, 3]
+            target_pos = ee.copy()  # Update target tracking to current position
+            step_count += 1
+            positions_visited.append(ee.copy())
+            commands_executed.append(k)
+            print(f"  Step {step_count}: [Z] Joint 3 (+) -> "
+                  f"joint3={np.rad2deg(q_current[2]):.1f}°")
 
-    if k in direction_map:
-        # Cartesian step
-        target_pos = target_pos + direction_map[k] * step_size
-        q_current  = solve_ik(robot, target_pos, q_current)
-        sim2real.set_joint_positions(q_current)
-        T   = robot.forward_kinematics(q_current)
-        ee  = T[:3, 3]
-        err = np.linalg.norm(ee - target_pos)
-        step_count += 1
-        positions_visited.append(ee.copy())
-        commands_executed.append(k)
-        print(f"  Step {step_count:03d}: [{k.upper()}] "
-              f"EE=({ee[0]*100:.1f}, {ee[1]*100:.1f}, {ee[2]*100:.1f})cm  "
-              f"IK_err={err*1000:.2f}mm  "
-              f"joints={np.rad2deg(q_current).round(1)}°")
+        elif k == 'v':
+            # Independent Joint 3 adjustment (Negative direction)
+            q_current[2] = q_current[2] - joint_step
+            sim2real.set_joint_positions(q_current)
+            T = robot.forward_kinematics(q_current)
+            ee = T[:3, 3]
+            target_pos = ee.copy()  # Update target tracking to current position
+            step_count += 1
+            positions_visited.append(ee.copy())
+            commands_executed.append(k)
+            print(f"  Step {step_count}: [V] Joint 3 (-) -> "
+                  f"joint3={np.rad2deg(q_current[2]):.1f}°")
+            
+        # elif k == 'c':
+            # q_current[2]= q_current[2].set_joints(np.radian(90))
+            # sim2real.set_joint_positions(q_current)
+            # T = robot.forward_kinematics(q_current)
+            # ee = T[:3, 3]
+            # target_pos = ee.copy()  # Update target tracking to current position
+            # step_count += 1
+            # positions_visited.append(ee.copy())
+            # commands_executed.append(k)
 
-    elif k == 'x':
-        # X key — toggle between W/S and A/D axis lock (just a nudge in +X+Y)
-        # Per your request: pressing X moves EE diagonally +X +Y one step
-        target_pos = target_pos + np.array([1, 1, 0]) * step_size / np.sqrt(2)
-        q_current  = solve_ik(robot, target_pos, q_current)
-        sim2real.set_joint_positions(q_current)
-        T   = robot.forward_kinematics(q_current)
-        ee  = T[:3, 3]
-        step_count += 1
-        positions_visited.append(ee.copy())
-        commands_executed.append(k)
-        print(f"  Step {step_count:03d}: [X] diagonal +X+Y "
-              f"EE=({ee[0]*100:.1f}, {ee[1]*100:.1f}, {ee[2]*100:.1f})cm  "
-              f"joints={np.rad2deg(q_current).round(1)}°")
+        elif k == 'c':
+            q_current[2] = np.deg2rad(90.0)
+            sim2real.set_joint_positions(q_current)
+            T = robot.forward_kinematics(q_current)
+            ee = T[:3, 3]
+            target_pos = ee.copy()  
+            
+            step_count += 1
+            positions_visited.append(ee.copy())
+            commands_executed.append(k)
+            print(f"  Step {step_count:03d}: [C] -> Joint 3 snapped to 90.0°")
 
-    elif k == 'z':
-        # Z key — INCREMENT all joint positions by joint_step
-        # q_new = q_old + [joint_step, joint_step, joint_step]
-        q_current = q_current + np.array([joint_step, joint_step, joint_step])
-        sim2real.set_joint_positions(q_current)
-        T  = robot.forward_kinematics(q_current)
-        ee = T[:3, 3]
-        target_pos = ee.copy()   # sync target to actual EE
-        step_count += 1
-        positions_visited.append(ee.copy())
-        commands_executed.append(k)
-        print(f"  Step {step_count:03d}: [Z] joints++ "
-              f"joints={np.rad2deg(q_current).round(1)}°  "
-              f"EE=({ee[0]*100:.1f}, {ee[1]*100:.1f}, {ee[2]*100:.1f})cm")
 
-    elif k == 'v':
-        # V key — DECREMENT all joint positions by joint_step
-        # q_new = q_old - [joint_step, joint_step, joint_step]
-        q_current = q_current - np.array([joint_step, joint_step, joint_step])
-        sim2real.set_joint_positions(q_current)
-        T  = robot.forward_kinematics(q_current)
-        ee = T[:3, 3]
-        target_pos = ee.copy()   # sync target to actual EE
-        step_count += 1
-        positions_visited.append(ee.copy())
-        commands_executed.append(k)
-        print(f"  Step {step_count:03d}: [V] joints-- "
-              f"joints={np.rad2deg(q_current).round(1)}°  "
-              f"EE=({ee[0]*100:.1f}, {ee[1]*100:.1f}, {ee[2]*100:.1f})cm")
+        elif k == 'h':
+            target_pos = ee_start.copy()
+            q_current = np.zeros(3)
+            sim2real.set_joint_positions(q_current)
+            print("  -> HOME")
 
-    elif k == 'c':
-        # C key — go to HOME (same as H)
-        target_pos = ee_start.copy()
-        q_current  = np.zeros(3)
-        sim2real.set_joint_positions(q_current)
-        T  = robot.forward_kinematics(q_current)
-        ee = T[:3, 3]
-        print(f"  [C] HOME — EE: ({ee[0]*100:.1f}, {ee[1]*100:.1f}, {ee[2]*100:.1f})cm  "
-              f"joints={np.rad2deg(q_current).round(1)}°")
-
-    elif k == 'h':
-        target_pos = ee_start.copy()
-        q_current  = np.zeros(3)
-        sim2real.set_joint_positions(q_current)
-        T  = robot.forward_kinematics(q_current)
-        ee = T[:3, 3]
-        print(f"  [H] HOME — EE: ({ee[0]*100:.1f}, {ee[1]*100:.1f}, {ee[2]*100:.1f})cm")
-
-    elif k == 'q':
-        quit_flag = True
-        print("  Quit requested.")
+        elif k == 'q':
+            quit_flag = True
 
     # -------------------------------------------------
     # TODO 5: Start the keyboard listener and wait
@@ -234,8 +222,8 @@ def run_challenge(sim2real, robot, model, data):
         for j in range(1, len(positions_visited))
     )
 
-    print("\\n" + "=" * 55)
-    print("           FINAL RESULTS")
+    print("\n" + "=" * 55)
+    print("            FINAL RESULTS")
     print("=" * 55)
     print(f"  Steps executed:  {step_count}")
     print(f"  Commands:        {''.join(commands_executed)}")
@@ -254,4 +242,3 @@ def run_challenge(sim2real, robot, model, data):
         "final_ee": final_ee.tolist(),
         "total_distance_m": float(total_dist),
     }
-
