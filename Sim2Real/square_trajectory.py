@@ -110,7 +110,7 @@ def run_challenge(sim2real, robot, model, data):
     # -------------------------------------------------
     corners = [
         np.array([0.1, 0.075, z_ref]),   # Corner 1 (Top-Left based on your line coordinate)
-        np.array([0, 0.075, z_ref]),  # Corner 2 (Top-Right)
+        np.array([0.0, 0.075, z_ref]),  # Corner 2 (Top-Right)
         np.array([0.0, 0.125, z_ref]), # Corner 3 (Bottom-Right)
         np.array([0.1, 0.125, z_ref]),  # Corner 4 (Bottom-Left)
     ]
