@@ -73,7 +73,6 @@ class QuinticPolynomial:
                 self.a4_coeff * t**4 +
                 self.a5_coeff * t**5)
 
-
 # =================================================
 # IK helper (provided - do NOT modify)
 # =================================================
