@@ -104,7 +104,7 @@ def run_challenge(params):
         # This mode allows motors to move to target angles.
 
         for jid in joint_ids:
-            ctrl.change_operating_mode(jid, 3)
+            ctrl.change_operating_mode(jid, 1)
 
         # ----------------------------------------------------
         # SPEED

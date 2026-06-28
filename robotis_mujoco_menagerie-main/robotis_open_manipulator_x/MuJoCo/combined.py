@@ -54,7 +54,7 @@ HOME_EE = np.array([0.1417, 0.0210, 0.20])
 # ============================================================
 X_START_POS   = np.array([0.1417, 0.0210, 0.20])
 X_END_POS     = np.array([0.28,   0.0210, 0.20])
-X_MOTION_TIME = 2.0
+X_MOTION_TIME = 4.0
 
 # ============================================================
 # TRANSLATION Z PARAMETERS
@@ -63,7 +63,7 @@ LINE_X        = 0.1417
 LINE_Y        = 0.0210
 Z_START       = 0.20
 Z_END         = 0.30
-Z_MOTION_TIME = 2.0
+Z_MOTION_TIME = 6.0
 
 # ============================================================
 # ROTATION PARAMETERS
@@ -71,7 +71,7 @@ Z_MOTION_TIME = 2.0
 FIXED_POS       = np.array([0.1417, 0.0210, 0.20])
 J4_START        = -np.pi / 3
 J4_END          =  np.pi / 3
-ROT_MOTION_TIME = 3.0
+ROT_MOTION_TIME = 8.0
 APPROACH_STEPS  = 80
 
 # ============================================================
